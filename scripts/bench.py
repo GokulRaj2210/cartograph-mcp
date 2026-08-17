@@ -83,9 +83,7 @@ def benchmark(path: Path, workdir: Path) -> dict[str, object] | None:
         anchor = graph.store.hotspots(limit=1)[0][0]
         latency = {
             "find_symbol": median_ms(lambda: graph.find_symbol(anchor.name, limit=20)),
-            "who_calls d3": median_ms(
-                lambda: graph.store.callers(anchor.id, depth=3, limit=50)
-            ),
+            "who_calls d3": median_ms(lambda: graph.store.callers(anchor.id, depth=3, limit=50)),
             "blast_radius": median_ms(lambda: graph.blast_radius(anchor.qualname)),
             "architecture": median_ms(lambda: graph.architecture()),
         }
@@ -139,8 +137,10 @@ def main() -> int:
         f"| {'Repo':<12} | {'Files':>6} | {'KLOC':>6} | {'Symbols':>8} | {'Edges':>8} "
         f"| {'Cold':>6} | {'Warm':>6} | {'DB':>8} | {'Internal':>8} |"
     )
-    print(f"|{'-' * 14}|{'-' * 8}|{'-' * 8}|{'-' * 10}|{'-' * 10}|"
-          f"{'-' * 8}|{'-' * 8}|{'-' * 10}|{'-' * 10}|")
+    print(
+        f"|{'-' * 14}|{'-' * 8}|{'-' * 8}|{'-' * 10}|{'-' * 10}|"
+        f"{'-' * 8}|{'-' * 8}|{'-' * 10}|{'-' * 10}|"
+    )
     for r in rows:
         print(
             f"| {r['repo']:<12} | {r['files']:>6,} | {r['kloc']:>6.0f} | {r['symbols']:>8,} "
@@ -154,7 +154,8 @@ def main() -> int:
     print(f"|{'-' * 14}|" + "|".join(f"{'-' * 16}" for _ in labels) + "|")
     for r in rows:
         cells = " | ".join(
-            f"{value:>12.1f}ms" for value in r["latency"].values()  # type: ignore[union-attr]
+            f"{value:>12.1f}ms"
+            for value in r["latency"].values()  # type: ignore[union-attr]
         )
         print(f"| {r['repo']:<12} | {cells} |")
 
