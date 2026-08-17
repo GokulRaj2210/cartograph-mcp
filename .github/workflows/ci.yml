@@ -28,10 +28,10 @@ jobs:
           - os: macos-latest
             python: "3.12"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
@@ -58,9 +58,9 @@ jobs:
     name: dogfood (index this repo, gate on cycles)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
@@ -93,12 +93,17 @@ jobs:
       - name: Verify the MCP server starts and lists its tools
         run: uv run python scripts/smoke_mcp.py
 
+      # The Pages demo is generated from a live index, so build it here too:
+      # a PR then fails on a broken page instead of the deploy on main.
+      - name: Build the demo page
+        run: uv run python scripts/build_docs.py --out site
+
   build:
     name: build wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
       - run: uv build
       - name: Install the wheel in a clean venv
         run: |
@@ -108,7 +113,7 @@ jobs:
           /tmp/clean/bin/cartograph version
           /tmp/clean/bin/cartograph index . --db /tmp/wheel.db -q
           /tmp/clean/bin/cartograph find GraphStore --db /tmp/wheel.db
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: dist
           path: dist/

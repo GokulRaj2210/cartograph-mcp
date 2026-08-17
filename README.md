@@ -4,6 +4,8 @@
 
 tree-sitter + SQLite. No embeddings, no vector store, no API keys, no server, no cost.
 
+**[→ Live demo](https://gokulraj2210.github.io/cartograph-mcp/)** — generated from a real index of this repo on every push.
+
 [![CI](https://github.com/GokulRaj2210/cartograph-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/GokulRaj2210/cartograph-mcp/actions/workflows/ci.yml)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License MIT](https://img.shields.io/badge/license-MIT-green)
@@ -16,17 +18,18 @@ Give a coding agent a large unfamiliar repo and watch what it does: `grep`, read
 
 The usual fix is RAG: embed the codebase, retrieve "similar" chunks. But *"who calls this function?"* is not a similarity question. It has an exact answer, and that answer lives in the call graph.
 
-Cartograph builds the graph, then hands agents nine tools shaped for how they actually work.
+Cartograph builds the graph, then hands agents ten tools shaped for how they actually work.
 
 ```console
 $ cartograph blast src/cartograph/graph/store.py
 
 ## Blast radius — file `src/cartograph/graph/store.py`
 
-14 dependent file(s), 30 affected symbol(s), 6 test file(s).
+17 dependent file(s), 31 affected symbol(s), 7 test file(s).
 
 **Tests to run first**
 - `tests/test_cli.py`
+- `tests/test_docs.py`
 - `tests/test_incremental.py`
 - `tests/test_mcp.py`
 - `tests/test_resolver.py`
@@ -81,7 +84,7 @@ Or any MCP client, via `mcp.json`:
 
 ---
 
-## The nine tools
+## The ten tools
 
 | Tool | Answers |
 |---|---|
@@ -94,6 +97,7 @@ Or any MCP client, via `mcp.json`:
 | `related_symbols` | "What else should I read?" via personalized PageRank |
 | `file_summary` | What a file defines, imports, and who imports it |
 | `architecture_overview` | Modules, layering, import cycles, hotspots, entry points |
+| `index_stats` | Index health and the edge-resolution breakdown by rule |
 
 Plus MCP resources (`cartograph://architecture`, `cartograph://stats`) and an `orient` prompt for a graph-first first pass at an unfamiliar repo.
 
@@ -221,7 +225,7 @@ Subclass `LanguageAdapter` (~40 lines) and drop in a `.scm` file. `GoAdapter` is
 ```bash
 git clone https://github.com/GokulRaj2210/cartograph-mcp && cd cartograph-mcp
 uv sync
-uv run pytest -q          # 195 tests
+uv run pytest -q          # 209 tests
 uv run ruff check .
 uv run mypy               # strict
 ```
@@ -236,6 +240,7 @@ The cycle gate has already earned its keep — it caught a `store → resolver �
 - `tests/test_incremental.py` — no stale edges after edits, deletions, or a symbol moving between files.
 - `tests/test_resolver.py` — every rule fires, and none over-claims its confidence.
 - `tests/test_cli.py` — a reader and an indexer can hold the database at once.
+- `tests/test_docs.py` — the generated demo page is well-formed HTML with balanced tags, which is how the Markdown renderer's crossed-tag bug on `min_confidence` was caught.
 
 ---
 
