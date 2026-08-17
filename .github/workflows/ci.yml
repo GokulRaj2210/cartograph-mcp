@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Deterministic, offline, no API keys: the whole point of a static code graph.
+  PYTHONHASHSEED: "0"
+
+jobs:
+  test:
+    name: test (py${{ matrix.python }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12", "3.13"]
+        include:
+          # One macOS leg: tree-sitter ships native wheels, so platform matters.
+          - os: macos-latest
+            python: "3.12"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
+
+      - name: Install
+        run: uv sync --frozen --all-extras --dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Types
+        run: uv run mypy
+
+      - name: Tests
+        run: uv run pytest -q --cov=cartograph --cov-report=term-missing
+
+  dogfood:
+    name: dogfood (index this repo, gate on cycles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - run: uv sync --frozen --dev
+
+      # If Cartograph cannot make sense of its own source, it cannot be trusted
+      # on anyone else's.
+      - name: Index this repository
+        run: uv run cartograph index . --db .cartograph/ci.db
+
+      - name: Fail on import cycles
+        run: uv run cartograph cycles --db .cartograph/ci.db
+
+      - name: Architecture snapshot
+        run: uv run cartograph arch --db .cartograph/ci.db >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Index stats
+        run: uv run cartograph stats --db .cartograph/ci.db >> "$GITHUB_STEP_SUMMARY"
+
+      # A no-op reindex must reparse nothing. This catches hashing/incremental
+      # regressions that unit tests can miss on a fresh temp directory.
+      - name: Incremental reindex is a no-op
+        run: |
+          out=$(uv run cartograph index . --db .cartograph/ci.db 2>&1)
+          echo "$out"
+          echo "$out" | grep -qE '^files +0 indexed' || {
+            echo "::error::a no-op reindex reparsed files"; exit 1; }
+
+      - name: Verify the MCP server starts and lists its tools
+        run: uv run python scripts/smoke_mcp.py
+
+  build:
+    name: build wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv build
+      - name: Install the wheel in a clean venv
+        run: |
+          uv venv /tmp/clean
+          VIRTUAL_ENV=/tmp/clean uv pip install dist/*.whl
+          # Packaged queries must ship inside the wheel, not just the source tree.
+          /tmp/clean/bin/cartograph version
+          /tmp/clean/bin/cartograph index . --db /tmp/wheel.db -q
+          /tmp/clean/bin/cartograph find GraphStore --db /tmp/wheel.db
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
